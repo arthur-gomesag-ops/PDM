@@ -2,34 +2,44 @@
 
 ## Contexto
 
-Este projeto começou com uma estrutura em que o app mobile fazia chamadas para um backend em Next.js, localizado na pasta `api`, e esse backend repassava as requisições para o Supabase. A análise do código mostrou que esse backend não adicionava lógica de negócio relevante; ele basicamente fazia um pass-through entre o app e o banco.
+Este projeto começou com uma estrutura em que o app mobile fazia chamadas para um backend em Next.js localizado na pasta `api`, e esse backend repassava as requisições para o Supabase. A análise do código mostrou que esse backend não acrescentava lógica de negócio relevante; ele apenas fazia passagem de dados entre o app e o banco.
 
-Diante disso, o objetivo principal da mudança foi simplificar a arquitetura e remover um ponto redundante de infraestrutura sem perder a funcionalidade do sistema.
+Diante disso, a missão desta etapa foi remover uma camada redundante, reduzir a complexidade da arquitetura e manter o sistema funcionando com acesso direto ao Supabase.
 
 ## Objetivo da mudança
 
-Remover a camada do Next.js e deixar o app mobile acessando diretamente o Supabase, preservando o comportamento do sistema enquanto reduz a complexidade da solução.
+Remover o backend em Next e fazer o app mobile acessar o Supabase diretamente, sem perder os fluxos principais de login, cadastro e operações.
 
 ## O que foi feito
 
-### 1. remoção da camada redundante
+### 1) Foram removidas as rotas do backend em Next
 
-Foi removida a dependência do backend em Next para os fluxos principais do aplicativo, principalmente os de:
+A pasta de backend foi removida:
 
-- login
-- cadastro
-- listagem de sementes
-- listagem de recursos
-- criação de operações
-- doações e solicitações
+- `api/`
 
-### 2. criação do cliente direto do Supabase no app
+Dentro dela estavam rotas relacionadas aos fluxos do sistema, como:
 
-Foi criado o arquivo principal de acesso ao banco em:
+- `api/login/route.js`
+- `api/cadastro/route.js`
+- `api/monitoramento/route.js`
+- `api/operacoes/route.js`
+- `api/recursos/route.js`
+- `api/sementes/route.js`
+- `api/usuarios/route.js`
+- `api/pendencias/[id]/route.js`
+- `api/operacoes/[id]/aprovar/route.js`
+- `api/operacoes/[id]/recusar/route.js`
+
+Essas rotas eram redundantes porque o projeto já usava o Supabase para autenticação e armazenamento de dados.
+
+### 2) Foi adicionado o cliente direto do Supabase no app
+
+Foi criado o arquivo central de acesso ao banco:
 
 - `lib/supabase.ts`
 
-Esse arquivo centraliza as conexões e as funções de domínio do app, como:
+Ele concentra as funções do sistema, como:
 
 - `loginAgricultor`
 - `cadastrarUsuarioNoSupabase`
@@ -40,63 +50,115 @@ Esse arquivo centraliza as conexões e as funções de domínio do app, como:
 - `criarDoacaoSemente`
 - `criarDoacaoRecurso`
 
-### 3. compatibilidade com variáveis de ambiente
+Esse arquivo passou a ser o ponto central para autenticação, consultas e registros no banco.
 
-Foi mantida a variável antiga de compatibilidade `EXPO_PUBLIC_API_URL` apenas como legado, mas a aplicação passou a priorizar as variáveis do Supabase:
+### 3) Os fluxos do app foram ajustados para usar o Supabase diretamente
+
+Os arquivos que antes dependiam da camada Next foram alterados para importar e consumir o cliente do Supabase diretamente:
+
+- `app/login.tsx`
+- `app/registrar.tsx`
+- `app/Operacao/feijao.tsx`
+- `app/Operacao/fava.tsx`
+- `app/Operacao/OutrasSementes.tsx`
+- `app/Operacao/solicitar-recurso.tsx`
+- `app/Operacao/doar-semente.tsx`
+- `app/Operacao/doar-recurso.tsx`
+
+A ideia era manter o comportamento do app mas sem a camada extra de backend.
+
+### 4) Foi corrigida a compatibilidade com Expo e web
+
+A persistência de sessão foi ajustada para funcionar em ambiente web e nativo sem quebrar a execução do app. Isso foi necessário porque o app estava tentando usar armazenamento de sessão em um contexto incompatível.
+
+Arquivo afetado:
+
+- `lib/supabase.ts`
+
+### 5) Foi ajustada a configuração de ambiente
+
+A aplicação passou a priorizar as variáveis do Supabase no arquivo:
+
+- `.env`
+
+Valores usados:
 
 - `EXPO_PUBLIC_SUPABASE_URL`
 - `EXPO_PUBLIC_SUPABASE_ANON_KEY`
 
-### 4. compatibilidade com web/Expo
+A variável antiga `EXPO_PUBLIC_API_URL` foi mantida apenas como compatibilidade, mas não é a fonte principal do projeto agora.
 
-Foi ajustado o uso de armazenamento de sessão para funcionar corretamente no ambiente web, evitando que o app tente usar `expo-secure-store` em contexto inadequado.
+### 6) Foi removida a pasta de utilitários que estava dentro do app
 
-## Arquitetura atual
+A pasta:
 
-A arquitetura atual do projeto ficou assim:
+- `app/lib/`
 
-- app mobile Expo/React Native
+foi removida para evitar que o Expo Router a interpretasse como rota da aplicação. A lógica foi movida para a raiz do projeto:
+
+- `lib/supabase.ts`
+
+## O que foi apagado
+
+- pasta `api/`
+- toda a estrutura de rotas do backend Next
+- pasta `app/lib/`
+
+## O que foi adicionado
+
+- cliente direto do Supabase em `lib/supabase.ts`
+- lógica de autenticação e dados do app conectada diretamente ao banco
+- persistência de sessão compatível com web/Expo
+
+## O que foi modificado
+
+- imports dos arquivos do app que antes usavam o backend
+- configuração de ambiente em `.env`
+- estrutura de arquivos para remover rotas falsas do Expo Router
+- documentação da migração em `docs/migracao-next-supabase.md`
+
+## Arquitetura final
+
+A arquitetura atual ficou assim:
+
+- app mobile em Expo / React Native
 - rotas do Expo Router
-- acesso direto ao Supabase
-- sessão armazenada localmente no ambiente apropriado
-- sem backend Next no fluxo principal
+- cliente direto do Supabase
+- persistência local de sessão
+- sem backend em Next como camada principal
 
-## Fluxos que a aplicação já tenta cobrir
+## O que o sistema faz hoje
 
-A estrutura do app é organizada para o seguinte comportamento:
+O fluxo principal da aplicação foi mantido em torno de:
 
 - login do agricultor
-- cadastro do usuário
-- navegação da home
-- acesso à área de operações
+- cadastro de usuário
+- navegação na home
+- acesso às telas de operação
 - listagem de sementes e recursos
-- criação de solicitações e doações
+- criação de doações e solicitações
 
-## Estado real do projeto
+## O que ainda está pendente
 
-### Concluído
+A mudança cumpriu a missão de remover a camada redundante, mas o projeto ainda não está concluído como produto final. Ainda faltam refinamentos visuais e de negócio, como:
 
-- remoção da camada Next redundante
-- migração do acesso ao Supabase para o app
-- validação básica de compilação do projeto
-- compatibilidade para execução local do app
-
-### Ainda pendente para produto final
-
-O projeto ainda não está completamente finalizado como produto de uso real. O que continua pendente é a camada de experiência e regras de negócio do usuário, por exemplo:
-
-- tela de perfil com dados reais do usuário
+- perfil do usuário completo
 - notificações
-- alertas e feedbacks visuais de ação
-- confirmação de operações concluídas
+- alertas e feedbacks
 - histórico funcional
-- pendências e aprovações
-- integrações de regras de negócio mais completas com o banco
-- review final de validação de fluxo completo para usuário real
+- aprovação/recusa de pendências
+- validação final do fluxo com dados reais
 
-## Observação importante sobre segurança
+## Observação importante
 
-A mudança foi feita com foco em remover redundância e simplificar a arquitetura. Não houve, nesta etapa, revisão aprofundada de políticas de segurança e RLS do Supabase. Esse é um passo posterior recomendado para ambiente de produção.
+A mudança foi feita com foco em simplificação, não em hardening de segurança. As regras de segurança do Supabase e políticas de acesso ainda precisam ser revisadas para uso em produção.
+
+## Conclusão
+
+A etapa principal foi concluída com sucesso: o backend em Next foi removido e o app passou a se comunicar diretamente com o Supabase. Isso reduziu a complexidade da arquitetura, eliminou um ponto redundante de infraestrutura e manteve o projeto em uma estrutura mais simples e direta.
+
+Essa mudança é o marco principal da entrega atual, e o próximo passo natural é concluir o fluxo de experiência do usuário e fechar a parte de negócio do app.
+
 
 ## Estrutura relevante do projeto
 
