@@ -11,7 +11,11 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import * as SecureStore from "expo-secure-store";
+import {
+  loginAgricultor,
+  salvarSessaoNoStore,
+  salvarUsuarioNoStore,
+} from "../lib/supabase";
 
 export default function Login() {
   const router = useRouter();
@@ -26,36 +30,13 @@ export default function Login() {
     }
 
     try {
-      const resposta = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/api/login`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email: email.trim(),
-            senha: senha,
-          }),
-        },
-      );
-
-      const resultado = await resposta.json();
-
-      if (!resposta.ok) {
-        Alert.alert(
-          "Erro no login",
-          resultado.mensagem || "Email ou senha incorretos.",
-        );
-        return;
-      }
+      const resultado = await loginAgricultor(email, senha);
 
       if (!resultado.usuario) {
         Alert.alert("Erro", "Não foi possível encontrar o usuário.");
         return;
       }
 
-      // O app mobile é só para agricultor - gerente usa o site
       if (resultado.usuario.papel !== "agricultor") {
         Alert.alert(
           "Acesso negado",
@@ -64,19 +45,12 @@ export default function Login() {
         return;
       }
 
-      // Guarda o token de sessão e os dados do usuário
-      await SecureStore.setItemAsync(
-        "supabase_session",
-        JSON.stringify(resultado.session),
-      );
-      await SecureStore.setItemAsync(
-        "usuario",
-        JSON.stringify(resultado.usuario),
-      );
+      await salvarSessaoNoStore(resultado.session);
+      await salvarUsuarioNoStore(resultado.usuario);
 
       router.replace("/homepage/home");
-    } catch (error) {
-      Alert.alert("Erro", "Não foi possível conectar com o servidor.");
+    } catch (error: any) {
+      Alert.alert("Erro no login", error?.message || "Email ou senha incorretos.");
     }
   }
 

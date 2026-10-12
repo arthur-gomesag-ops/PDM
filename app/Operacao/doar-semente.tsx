@@ -10,7 +10,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import * as SecureStore from "expo-secure-store";
+import { criarDoacaoSemente } from "../../lib/supabase";
 
 const TIPOS = ["Feijão", "Fava", "Outras sementes"];
 
@@ -36,47 +36,17 @@ export default function DoarSemente() {
     setEnviando(true);
 
     try {
-      const sessaoSalva = await SecureStore.getItemAsync("supabase_session");
+      await criarDoacaoSemente({
+        tipo,
+        subtipo: subtipo.trim(),
+        quantidade: Number(quantidade),
+      });
 
-      if (!sessaoSalva) {
-        Alert.alert("Erro", "Sua sessão expirou. Faça login novamente.");
-        return;
-      }
-
-      const sessao = JSON.parse(sessaoSalva);
-      const token = sessao?.access_token;
-
-      const resposta = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/api/operacoes/doar-semente`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            tipo,
-            subtipo: subtipo.trim(),
-            quantidade: Number(quantidade),
-          }),
-        },
-      );
-
-      const resultado = await resposta.json();
-
-      if (!resposta.ok) {
-        Alert.alert(
-          "Erro",
-          resultado.mensagem || "Não foi possível enviar a doação.",
-        );
-        return;
-      }
-
-      Alert.alert("Sucesso", resultado.mensagem || "Doação enviada!", [
+      Alert.alert("Sucesso", "Doação enviada!", [
         { text: "OK", onPress: () => router.push("/homepage/home") },
       ]);
-    } catch (erro) {
-      Alert.alert("Erro", "Não foi possível conectar com o servidor.");
+    } catch (erro: any) {
+      Alert.alert("Erro", erro?.message || "Não foi possível enviar a doação.");
     } finally {
       setEnviando(false);
     }

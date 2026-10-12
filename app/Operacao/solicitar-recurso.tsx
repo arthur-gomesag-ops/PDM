@@ -16,7 +16,11 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import * as SecureStore from "expo-secure-store";
+import {
+  criarOperacaoSolicitacao,
+  listarRecursosDisponiveis,
+  supabase,
+} from "../../lib/supabase";
 
 export default function SolicitarRecurso() {
   const router = useRouter();
@@ -31,16 +35,14 @@ export default function SolicitarRecurso() {
 
   async function carregarRecursos() {
     try {
-      const resposta = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/api/recursos`,
-      );
-      const resultado = await resposta.json();
+      const { data, error } = await listarRecursosDisponiveis();
 
-      if (resposta.ok && resultado.sucesso) {
-        setRecursos(resultado.recursos.filter((r: any) => r.quantidade > 0));
-      } else {
+      if (error) {
         Alert.alert("Erro", "Não foi possível carregar os recursos.");
+        return;
       }
+
+      setRecursos(data ?? []);
     } catch (erro) {
       Alert.alert("Erro", "Não foi possível conectar com o servidor.");
     } finally {
@@ -75,46 +77,15 @@ export default function SolicitarRecurso() {
     setEnviando(true);
 
     try {
-      const sessaoSalva = await SecureStore.getItemAsync("supabase_session");
+      await criarOperacaoSolicitacao({
+        id_recurso: recursoSelecionado.id_recurso,
+        quantidade: Number(quantidade),
+      });
 
-      if (!sessaoSalva) {
-        Alert.alert("Erro", "Sua sessão expirou. Faça login novamente.");
-        return;
-      }
-
-      const sessao = JSON.parse(sessaoSalva);
-      const token = sessao?.access_token;
-
-      const resposta = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/api/operacoes`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            tipo: "solicitação",
-            id_recurso: recursoSelecionado.id_recurso,
-            quantidade: Number(quantidade),
-          }),
-        },
-      );
-
-      const resultado = await resposta.json();
-
-      if (!resposta.ok) {
-        Alert.alert(
-          "Erro",
-          resultado.mensagem || "Não foi possível enviar a solicitação.",
-        );
-        return;
-      }
-
-      Alert.alert("Sucesso", resultado.mensagem || "Solicitação enviada!");
+      Alert.alert("Sucesso", "Solicitação enviada!");
       setModalVisivel(false);
-    } catch (erro) {
-      Alert.alert("Erro", "Não foi possível conectar com o servidor.");
+    } catch (erro: any) {
+      Alert.alert("Erro", erro?.message || "Não foi possível enviar a solicitação.");
     } finally {
       setEnviando(false);
     }

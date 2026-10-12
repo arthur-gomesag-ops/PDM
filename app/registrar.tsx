@@ -10,6 +10,7 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 
 import { useRouter } from "expo-router";
 import { useState } from "react";
+import { cadastrarUsuarioNoSupabase } from "../lib/supabase";
 
 export default function Registrar() {
   const router = useRouter();
@@ -51,79 +52,30 @@ export default function Registrar() {
     console.log("5 - AS SENHAS SÃO IGUAIS");
 
     try {
-      console.log("6 - ENVIANDO DADOS PARA A API");
+      console.log("6 - ENVIANDO DADOS PARA O SUPABASE");
 
-      // Verifica se o endereço da API foi encontrado
-      const enderecoAPI = process.env.EXPO_PUBLIC_API_URL;
-      console.log("=================================");
-      console.log("TESTE DA API");
-      console.log("ENDEREÇO:", process.env.EXPO_PUBLIC_API_URL);
-      console.log("=================================");
-
-      console.log("ENDEREÇO DA API:", enderecoAPI);
-
-      if (!enderecoAPI) {
-        Alert.alert("Erro", "O endereço da API não foi encontrado no .env.");
-
-        console.log("ERRO: EXPO_PUBLIC_API_URL não encontrada.");
-
-        return;
-      }
-
-      // Envia os dados do cadastro para a API
-      const resposta = await fetch(`${enderecoAPI}/api/cadastro`, {
-        method: "POST",
-
-        headers: {
-          "Content-Type": "application/json",
-        },
-
-        body: JSON.stringify({
-          nome: nome.trim(),
-          telefone: telefone.trim(),
-          cpf: cpf.trim(),
-          email: email.trim(),
-          senha: senha,
-        }),
+      const resultado = await cadastrarUsuarioNoSupabase({
+        nome: nome.trim(),
+        telefone: telefone.trim(),
+        cpf: cpf.trim(),
+        email: email.trim(),
+        senha: senha,
       });
 
-      console.log("7 - RESPOSTA RECEBIDA DA API");
-
-      // Converte a resposta para JSON
-      const resultado = await resposta.json();
-
-      console.log("RESULTADO DA API:", resultado);
-
-      // Verifica se a API retornou erro
-      if (!resposta.ok) {
-        console.log("ERRO DA API:", resultado);
-
-        Alert.alert(
-          "Erro no cadastro",
-          resultado.mensagem || "Não foi possível realizar o cadastro.",
-        );
-
-        return;
-      }
-
       console.log("8 - CADASTRO REALIZADO COM SUCESSO");
-
       console.log("USUÁRIO:", resultado.usuario);
 
-      // Mostra mensagem de sucesso
       Alert.alert("Cadastro realizado!", "Sua conta foi criada com sucesso!", [
         {
           text: "OK",
-
           onPress: () => {
             router.replace("/login");
           },
         },
       ]);
-    } catch (error) {
-      console.log("ERRO AO CONECTAR COM A API:", error);
-
-      Alert.alert("Erro", "Não foi possível conectar com o servidor.");
+    } catch (error: any) {
+      console.log("ERRO AO CADASTRAR:", error);
+      Alert.alert("Erro no cadastro", error?.message || "Não foi possível realizar o cadastro.");
     }
   }
 
